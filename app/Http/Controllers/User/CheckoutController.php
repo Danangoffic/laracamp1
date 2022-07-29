@@ -10,7 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\Checkout\AfterCheckout;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Midtrans;
 
 class CheckoutController extends Controller
 {
@@ -64,6 +66,8 @@ class CheckoutController extends Controller
         $user->name = $data['name'];
         $user->email = $data['email'];
         $user->occupation = $data['occupation'];
+        $user->phone = $data['phone'];
+        $user->address = $data['address'];
         $user->save();
 
         $checkout = Checkout::create($data);
@@ -135,7 +139,7 @@ class CheckoutController extends Controller
         $price = $checkout->Camp->price * 1000;
 
         $transaction_details = [
-            'order_detail' => $orderId,
+            'order_id' => $orderId,
             'gross_amount' => $price
         ];
         $item_details[] = [
@@ -174,16 +178,18 @@ class CheckoutController extends Controller
         try {
             // Get snap payment Page URL
             $paymentUrl = \Midtrans\Snap::createTransaction($midtrans_params)->redirect_url;
+            Log::info("payment url : {$paymentUrl}");
+            Log::info("midtrans booking code : {$orderId}");
             $checkout->midtrans_url = $paymentUrl;
             $checkout->save();
         } catch (\Exception $e) {
-            //throw $th;
+            Log::error("Failed caused : {$e->getMessage()}");
         }
     }
 
     public function midtransCallback(Request $request)
     {
-        $notif = new \Midtrans\Notification();
+        $notif = $request->method() == 'POST' ? new \Midtrans\Notification() : \Midtrans\Transaction::status($request->order_id);
 
         $transaction_status = $notif->transaction_status;
         $fraud = $notif->fraud_status;
