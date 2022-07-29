@@ -19,8 +19,7 @@
                         @forelse ($checkouts as $checkout)
                             <tr class="align-middle">
                                 <td width="18%">
-                                    <img src="{{ asset('assets/images/item_bootcamp.png') }}" height="120"
-                                        alt="">
+                                    <img src="{{ asset('assets/images/item_bootcamp.png') }}" height="120" alt="">
                                 </td>
                                 <td>
                                     <p class="mb-2">
@@ -34,10 +33,11 @@
                                     <strong>${{ $checkout->Camp->price }}K</strong>
                                 </td>
                                 <td>
-                                    @if ($checkout->is_paid)
-                                        <strong class="text-success">Payment Success</strong>
-                                    @else
-                                        <strong>Waiting for Payment</strong>
+                                    <strong>{{ $checkout->payment_status }}</strong>
+                                </td>
+                                <td>
+                                    @if ($checkout->payment_status == 'waiting')
+                                        <a href="{{ $checkout->midtrans_url }}" class="btn btn-primary">Pay Here</a>
                                     @endif
                                 </td>
                                 <td>
@@ -50,7 +50,7 @@
                         @empty
                             <tr>
                                 <td colspan="5">
-                                    <h3>No Data</h3>
+                                    <h3>No Camp Registered</h3>
                                 </td>
                             </tr>
                         @endforelse
