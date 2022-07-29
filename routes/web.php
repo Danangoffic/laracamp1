@@ -27,6 +27,8 @@ Route::get('/', function () {
 //     return view('checkout');
 // })->name('checkout');
 
+Route::get('payment/success', [CheckoutController::class, 'midtransCallback']);
+Route::post('payment/success', [CheckoutController::class, 'midtransCallback']);
 
 Route::middleware(['auth'])->group(function () {
     //checkout routes
