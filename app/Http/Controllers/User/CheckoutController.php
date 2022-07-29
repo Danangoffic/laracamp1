@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\Checkout\AfterCheckout;
+use App\Models\Discount;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Midtrans;
@@ -57,7 +58,6 @@ class CheckoutController extends Controller
     public function store(StoreRequest $request, Camp $camp)
     {
         $data = $request->all();
-        // return $data;
         $data['user_id'] = Auth::id();
         $data['camp_id'] = $camp->id;
         if (Auth::user() == null) return redirect(route('login'));
@@ -69,6 +69,13 @@ class CheckoutController extends Controller
         $user->phone = $data['phone'];
         $user->address = $data['address'];
         $user->save();
+
+        // check discount
+        if ($request->discount) {
+            $discount = Discount::whereCode($request->discount)->first();
+            $data['discount_id'] = $discount->id;
+            $data['discount_percentage'] = $discount->percentage;
+        }
 
         $checkout = Checkout::create($data);
         $this->getSnapRedirect($checkout);
@@ -138,16 +145,32 @@ class CheckoutController extends Controller
         $checkout->midtrans_booking_code = $orderId;
         $price = $checkout->Camp->price * 1000;
 
-        $transaction_details = [
-            'order_id' => $orderId,
-            'gross_amount' => $price
-        ];
+
         $item_details[] = [
             'id' => $orderId,
             'price' => $price,
             'quantity' => 1,
             'name' => "Payment for {$checkout->Camp->name} Camp",
             // 'url' => route('checkout.store', $checkout->Camp->slug)
+        ];
+
+        $discout_price = 0;
+        if ($checkout->Discount) {
+            $discout_price = $price * $checkout->discount_percentage / 100;
+            $item_details[] = [
+                'id' => $checkout->Discount->code,
+                'price' => -$discout_price,
+                'quantity' => 1,
+                'name' => "Discount {$checkout->Discount->name} {$checkout->Discount->percentage}%",
+                // 'url' => route('checkout.store', $checkout->Camp->slug)
+            ];
+        }
+
+        $total = $price - $discout_price;
+
+        $transaction_details = [
+            'order_id' => $orderId,
+            'gross_amount' => $total
         ];
 
         $userData = [
@@ -181,6 +204,7 @@ class CheckoutController extends Controller
             Log::info("payment url : {$paymentUrl}");
             Log::info("midtrans booking code : {$orderId}");
             $checkout->midtrans_url = $paymentUrl;
+            $checkout->total = $total;
             $checkout->save();
         } catch (\Exception $e) {
             Log::error("Failed caused : {$e->getMessage()}");
